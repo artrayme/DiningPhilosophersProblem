@@ -8,11 +8,17 @@
 #define HUNGRY_STATUS 1
 #define EATING_STATUS 0
 
-sem_t philosophersSem[PHILOSOPHERS_COUNT];
 #define FIRST_FORK ((philosopherId + 4) % PHILOSOPHERS_COUNT)
 #define SECOND_FORK ((philosopherId + 1) % PHILOSOPHERS_COUNT)
+
+// Semaphores for each Philosopher.
+// They are used for waiting forks and wake up Philosophers at waiting
+sem_t philosophersSem[PHILOSOPHERS_COUNT];
+
 int philosophers[PHILOSOPHERS_COUNT];
 int forksStates[PHILOSOPHERS_COUNT];
+
+// Mutex for critical sections
 pthread_mutex_t lock;
 
 void eating(int philosopherId) {
@@ -32,6 +38,11 @@ void eatIfForksFree(int philosopherId) {
   }
 }
 
+// Philosopher take fork in any case.
+// If forks available - philosopher takes forks immediately
+// If one or two forks are busy - thread wait
+// Other philosophers can wake up the thread by calling
+// eatIfForksFree fun with this philosopher id
 void takeForkAndEat(int philosopherId) {
   pthread_mutex_lock(&lock);
   forksStates[philosopherId] = HUNGRY_STATUS;
@@ -42,6 +53,9 @@ void takeForkAndEat(int philosopherId) {
   sleep(1);
 }
 
+// Set forks status to available
+// Call fun eatIfForksFree for neighbour philosophers
+// to wake up theirs if needed
 void putForkAndThink(int philosopherId) {
   pthread_mutex_lock(&lock);
   forksStates[philosopherId] = THINKING_STATUS;
@@ -65,13 +79,20 @@ _Noreturn void *philosopherLiveCycle(void *num) {
 
 int main() {
   int i;
+
+  //  Philosopher threads array
   pthread_t philosopherThreads[PHILOSOPHERS_COUNT];
+
+  //  Init main mutex (used for critical sections)
   pthread_mutex_init(&lock, NULL);
 
+  //  Init semaphores for philosophers and set number for each philosopher
   for (i = 0; i < PHILOSOPHERS_COUNT; i++) {
     sem_init(&philosophersSem[i], 0, 0);
     philosophers[i] = i;
   }
+
+  //  Start philosopher threads
   for (i = 0; i < PHILOSOPHERS_COUNT; i++) {
     pthread_create(&philosopherThreads[i], NULL,
                    philosopherLiveCycle, &philosophers[i]);
